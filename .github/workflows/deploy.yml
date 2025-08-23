@@ -53,9 +53,9 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.5
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             # 애플리케이션 디렉토리로 이동
             cd /opt/file-extension-api
