@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파일 확장자 차단</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .section h2 {
+            color: #444;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+        .custom-extension-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .custom-extension-form input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .custom-extensions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .extension-tag .remove-btn {
+            margin-left: 8px;
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .file-upload-section {
+            background-color: #e7f3ff;
+            border: 2px dashed #007bff;
+            text-align: center;
+            padding: 30px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        .file-input-wrapper:hover {
+            background-color: #0056b3;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+        .upload-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .upload-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .counter {
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stats-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            text-align: center;
+        }
+        .stats-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .stats-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .search-box {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+            font-style: italic;
+        }
+        
+        @keyframes flash {
+            0%, 100% { background-color: #ffebee; }
+            50% { background-color: #ffcdd2; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>파일 확장자 차단</h1>
+        
+        <!-- API 문서 링크 -->
+        <div style="text-align: center; margin-bottom: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+            <p style="margin: 0; color: #666;">
+                📋 <strong>API 문서:</strong> 
+                <a href="/swagger-ui/index.html" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">
+                    Swagger UI 바로가기 →
+                </a>
+            </p>
+        </div>
+
+        <!-- 고정 확장자 섹션 -->
+        <div class="section">
+            <h2>고정 확장자</h2>
+            <p>체크 시 해당 확장자가 차단됩니다.</p>
+            <div id="fixed-extensions" class="checkbox-container">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-bat" onchange="updateFixedExtensionStatus('bat', this.checked)">
+                    <label for="fixed-bat">.bat</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-cmd" onchange="updateFixedExtensionStatus('cmd', this.checked)">
+                    <label for="fixed-cmd">.cmd</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-com" onchange="updateFixedExtensionStatus('com', this.checked)">
+                    <label for="fixed-com">.com</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-cpl" onchange="updateFixedExtensionStatus('cpl', this.checked)">
+                    <label for="fixed-cpl">.cpl</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-exe" onchange="updateFixedExtensionStatus('exe', this.checked)">
+                    <label for="fixed-exe">.exe</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-scr" onchange="updateFixedExtensionStatus('scr', this.checked)">
+                    <label for="fixed-scr">.scr</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="fixed-js" onchange="updateFixedExtensionStatus('js', this.checked)">
+                    <label for="fixed-js">.js</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 커스텀 확장자 섹션 -->
+        <div class="section">
+            <h2>커스텀 확장자 설정</h2>
+            <p>추가로 차단할 확장자를 입력하세요. (최대 20자, 200개까지)</p>
+            <div class="custom-extension-form">
+                <input type="text" id="custom-extension-input" placeholder="확장자 입력 (예: ppt, docx)" maxlength="20">
+                <button class="btn btn-primary" onclick="addCustomExtension()">추가</button>
+            </div>
+            <div id="custom-extensions" class="custom-extensions-list">
+                <!-- 커스텀 확장자들-->
+            </div>
+            <div class="counter">
+                커스텀 확장자: <span id="extension-count">0</span> / 200
+            </div>
+        </div>
+
+        <!-- 파일 업로드 테스트 섹션 -->
+        <div class="section">
+            <h2>파일 업로드 테스트</h2>
+            <div class="file-upload-section">
+                <p>파일을 업로드하여 테스트</p>
+                <div class="file-size-notice" style="margin-bottom: 15px; padding: 10px; background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px;">
+                    <small>📏 <strong>파일 크기 제한:</strong> 최대 100MB까지 업로드 가능합니다.</small>
+                </div>
+                <label class="file-input-wrapper">
+                    파일 선택
+                    <input type="file" id="test-file" onchange="testFileUpload()">
+                </label>
+                <div id="upload-result"></div>
+            </div>
+        </div>
+        
+        <!-- 파일 검증만 테스트 섹션 -->
+        <div class="section">
+            <h2>파일 검증 테스트 (업로드 없이)</h2>
+            <div class="file-upload-section" style="background-color: #fff3cd; border-color: #ffc107;">
+                <p>파일을 선택하여 검증만 수행 (실제 업로드하지 않음)</p>
+                <div class="file-size-notice" style="margin-bottom: 15px; padding: 10px; background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px;">
+                    <small>📏 <strong>파일 크기 제한:</strong> 최대 100MB까지 업로드 가능합니다.</small>
+                </div>
+                <label class="file-input-wrapper" style="background-color: #ffc107; color: #212529;">
+                    파일 선택 (검증만)
+                    <input type="file" id="check-file" onchange="checkFileOnly()">
+                </label>
+                <div id="check-result"></div>
+            </div>
+        </div>
+
+        <!-- 업로드된 파일 관리 섹션 -->
+        <div class="section">
+            <h2>업로드된 파일 관리</h2>
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="FileManager.loadFiles()">파일 목록 새로고침</button>
+                <input type="text" id="file-search" placeholder="파일명으로 검색..." class="search-box" onkeyup="FileManager.filterFiles()" style="margin-top: 10px;">
+            </div>
+            <div id="files-container">
+                <div class="no-data">파일 목록을 불러오려면 새로고침 버튼을 클릭하세요.</div>
+            </div>
+        </div>
+
+
+        <!-- 보안 감사 로그 섹션 -->
+        <div class="section">
+            <h2>보안 감사 로그 🔴 실시간</h2>
+            <p>차단된 파일 업로드 시도가 실시간으로 표시됩니다.</p>
+            <div id="blocked-uploads-container">
+                <div class="no-data">차단된 업로드 기록을 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 🚀 파일 확장자 차단 시스템 - JavaScript 모듈
+        // ============================================
+        
+        /**
+         * API 엔드포인트 상수
+         */
+        const API_ENDPOINTS = {
+            EXTENSIONS: '/api/extensions',
+            UPLOAD: '/api/upload/file',
+            UPLOAD_CHECK: '/api/upload/check',
+            FIXED: '/api/extensions/fixed',
+            CUSTOM: '/api/extensions/custom',
+            CHECK: '/api/extensions/check',
+            FILES: '/api/files',
+            AUDIT_BLOCKED: '/api/audit/blocked'
+        };
+        
+        /**
+         * 시스템 설정 상수
+         */
+        const CONFIG = {
+            FIXED_EXTENSIONS: ['bat', 'cmd', 'com', 'cpl', 'exe', 'scr', 'js'],
+            SAVE_DELAY: 1000, // 1초
+            AUTO_SAVE_INTERVAL: 5 * 60 * 1000, // 5분
+            MAX_CUSTOM_EXTENSIONS: 200
+        };
+        
+        /**
+         * 🚀 성능 최적화를 위한 확장자 상태 관리자
+         * 하이브리드 상태 관리 (메모리 + DB)
+         */
+        const ExtensionStateManager = {
+            // 현재 상태들 (메모리)
+            currentStates: {},
+            
+            // 아직 DB에 저장되지 않은 변경사항들
+            pendingChanges: {},
+            
+            // 저장 타이머 ID
+            saveTimer: null,
+            
+            /**
+             * 상태 관리자 초기화
+             */
+            init: function() {
+                this.loadFromDatabase();
+                this.setupEventListeners();
+                this.startAutoSave();
+            },
+            
+            /**
+             * 이벤트 리스너 설정
+             */
+            setupEventListeners: function() {
+                // 페이지 나갈 때 자동 저장
+                window.addEventListener('beforeunload', () => {
+                    this.saveImmediately();
+                });
+            },
+            
+            /**
+             * 자동 저장 설정
+             */
+            startAutoSave: function() {
+                // 5분마다 자동 저장 (안전장치)
+                setInterval(() => {
+                    this.saveChanges();
+                }, CONFIG.AUTO_SAVE_INTERVAL);
+            },
+            
+            /**
+             * DB에서 초기 데이터 로드
+             */
+            loadFromDatabase: async function() {
+                try {
+                    const response = await fetch(API_ENDPOINTS.FIXED);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const settings = await response.json();
+                    this.updateStatesFromDatabase(settings);
+                    this.updateUIFromStates(settings);
+                    
+                    console.log('✅ 고정 확장자 설정 로드 완료:', settings.length + '개');
+                } catch (error) {
+                    console.error('❌ 고정 확장자 설정 로드 실패:', error);
+                    NotificationManager.showError('설정 로드에 실패했습니다.');
+                }
+            },
+            
+            /**
+             * 메모리 상태 업데이트
+             */
+            updateStatesFromDatabase: function(settings) {
+                settings.forEach(setting => {
+                    this.currentStates[setting.extension] = setting.isBlocked;
+                });
+            },
+            
+            /**
+             * UI 상태 업데이트
+             */
+            updateUIFromStates: function(settings) {
+                settings.forEach(setting => {
+                    const checkbox = document.getElementById(`fixed-${setting.extension}`);
+                    if (checkbox) {
+                        checkbox.checked = setting.isBlocked;
+                    }
+                });
+            },
+            
+            /**
+             * 상태 변경 (즉시 반영 + 저장 예약)
+             */
+            updateState: function(extension, isBlocked) {
+                this.updateMemoryState(extension, isBlocked);
+                this.addToPendingChanges(extension, isBlocked);
+                this.logStateChange(extension, isBlocked);
+                this.scheduleSave();
+            },
+            
+            /**
+             * 메모리 상태 즉시 반영
+             */
+            updateMemoryState: function(extension, isBlocked) {
+                this.currentStates[extension] = isBlocked;
+            },
+            
+            /**
+             * 대기 중인 변경사항에 추가
+             */
+            addToPendingChanges: function(extension, isBlocked) {
+                this.pendingChanges[extension] = isBlocked;
+            },
+            
+            /**
+             * 상태 변경 로그 출력
+             */
+            logStateChange: function(extension, isBlocked) {
+                console.log(`🔄 ${extension}: ${isBlocked ? '차단' : '허용'} (메모리 반영)`);
+            },
+            
+            /**
+             * 저장 예약 (디바운싱)
+             */
+            scheduleSave: function() {
+                this.clearExistingTimer();
+                this.setNewTimer();
+            },
+            
+            /**
+             * 기존 타이머 취소
+             */
+            clearExistingTimer: function() {
+                if (this.saveTimer) {
+                    clearTimeout(this.saveTimer);
+                }
+            },
+            
+            /**
+             * 새 타이머 설정
+             */
+            setNewTimer: function() {
+                this.saveTimer = setTimeout(() => {
+                    this.saveChanges();
+                }, CONFIG.SAVE_DELAY);
+            },
+            
+            /**
+             * 실제 DB 저장
+             */
+            saveChanges: async function() {
+                if (!this.hasPendingChanges()) {
+                    return;
+                }
+                
+                console.log('💾 DB 저장 시작...', this.pendingChanges);
+                
+                const changesToSave = this.extractPendingChanges();
+                await this.processSaveChanges(changesToSave);
+                
+                console.log('💾 DB 저장 완료');
+            },
+            
+            /**
+             * 대기 중인 변경사항이 있는지 확인
+             */
+            hasPendingChanges: function() {
+                return Object.keys(this.pendingChanges).length > 0;
+            },
+            
+            /**
+             * 대기 중인 변경사항 추출 및 초기화
+             */
+            extractPendingChanges: function() {
+                const changesToSave = { ...this.pendingChanges };
+                this.pendingChanges = {};
+                return changesToSave;
+            },
+            
+            /**
+             * 변경사항들을 DB에 저장 처리
+             */
+            processSaveChanges: async function(changesToSave) {
+                for (const [extension, isBlocked] of Object.entries(changesToSave)) {
+                    await this.saveExtensionState(extension, isBlocked);
+                }
+            },
+            
+            /**
+             * 개별 확장자 상태 저장
+             */
+            saveExtensionState: async function(extension, isBlocked) {
+                try {
+                    await this.sendSaveRequest(extension, isBlocked);
+                    console.log(`✅ ${extension} 저장 완료`);
+                } catch (error) {
+                    console.error(`❌ ${extension} 저장 실패:`, error);
+                    this.handleSaveError(extension, isBlocked);
+                }
+            },
+            
+            /**
+             * 저장 요청 전송
+             */
+            sendSaveRequest: async function(extension, isBlocked) {
+                const response = await fetch(`${API_ENDPOINTS.FIXED}/${extension}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ isBlocked: isBlocked })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            },
+            
+            /**
+             * 저장 실패 처리
+             */
+            handleSaveError: function(extension, isBlocked) {
+                // 실패한 변경사항은 다시 pending에 추가
+                this.pendingChanges[extension] = isBlocked;
+                
+                // UI 되돌리기
+                this.revertUIState(extension, isBlocked);
+                
+                // 사용자에게 알림
+                NotificationManager.showError(`${extension} 설정 저장에 실패했습니다.`);
+            },
+            
+            /**
+             * UI 상태 되돌리기
+             */
+            revertUIState: function(extension, isBlocked) {
+                const checkbox = document.getElementById(`fixed-${extension}`);
+                if (checkbox) {
+                    checkbox.checked = !isBlocked;
+                    this.currentStates[extension] = !isBlocked;
+                }
+            },
+            
+            /**
+             * 즉시 저장 (페이지 나갈 때)
+             */
+            saveImmediately: function() {
+                if (this.hasPendingChanges()) {
+                    // 동기적으로 저장 (페이지 나가기 전에)
+                    navigator.sendBeacon(`${API_ENDPOINTS.FIXED}/batch`, 
+                        JSON.stringify(this.pendingChanges));
+                }
+            },
+            
+            /**
+             * 현재 상태 조회
+             */
+            getState: function(extension) {
+                return this.currentStates[extension] || false;
+            },
+            
+            /**
+             * 모든 현재 상태 조회
+             */
+            getAllStates: function() {
+                return { ...this.currentStates };
+            }
+        };
+        
+        /**
+         * 📢 알림 관리자
+         */
+        const NotificationManager = {
+            /**
+             * 성공 메시지 표시
+             */
+            showSuccess: function(message) {
+                this.showNotification(message, 'success');
+            },
+            
+            /**
+             * 오류 메시지 표시
+             */
+            showError: function(message) {
+                this.showNotification(message, 'error');
+            },
+            
+            /**
+             * 알림 표시 (간단한 alert 대신 향후 toast로 확장 가능)
+             */
+            showNotification: function(message, type) {
+                // 현재는 alert 사용, 향후 toast UI로 개선 가능
+                if (type === 'error') {
+                    console.error('❌', message);
+                    alert('❌ ' + message);
+                } else {
+                    console.log('✅', message);
+                }
+            }
+        };
+        
+        /**
+         * 🎯 메인 애플리케이션 초기화 및 이벤트 핸들러
+         */
+        const App = {
+            /**
+             * 애플리케이션 초기화
+             */
+            init: function() {
+                ExtensionStateManager.init();
+                CustomExtensionManager.init();
+                FileUploadManager.init();
+                FileManager.init();
+                AuditManager.init();
+                this.setupEventListeners();
+                this.requestNotificationPermission();
+            },
+            
+            /**
+             * 브라우저 알림 권한 요청
+             */
+            requestNotificationPermission: function() {
+                if ("Notification" in window && Notification.permission === "default") {
+                    Notification.requestPermission().then(function(permission) {
+                        if (permission === "granted") {
+                            console.log("알림 권한이 허용되었습니다.");
+                        }
+                    });
+                }
+            },
+            
+            /**
+             * 이벤트 리스너 설정
+             */
+            setupEventListeners: function() {
+                // Enter 키로 확장자 추가
+                const input = document.getElementById('custom-extension-input');
+                if (input) {
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            CustomExtensionManager.addExtension();
+                        }
+                    });
+                }
+            }
+        };
+        
+        /**
+         * 🎯 체크박스 클릭 시 호출되는 함수 (HTML에서 직접 호출)
+         */
+        function updateFixedExtensionStatus(extension, isBlocked) {
+            ExtensionStateManager.updateState(extension, isBlocked);
+        }
+
+        /**
+         * 📝 커스텀 확장자 관리자
+         */
+        const CustomExtensionManager = {
+            /**
+             * 초기화
+             */
+            init: function() {
+                this.loadExtensions();
+            },
+            
+            /**
+             * 커스텀 확장자 로드
+             */
+            loadExtensions: async function() {
+                try {
+                    const extensions = await this.fetchExtensions();
+                    this.renderExtensions(extensions);
+                    this.updateCounter(extensions.length);
+                } catch (error) {
+                    console.error('커스텀 확장자 로드 실패:', error);
+                    NotificationManager.showError('커스텀 확장자 로드에 실패했습니다.');
+                }
+            },
+            
+            /**
+             * 확장자 목록 가져오기
+             */
+            fetchExtensions: async function() {
+                const response = await fetch(API_ENDPOINTS.CUSTOM);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return await response.json();
+            },
+            
+            /**
+             * 확장자 목록 렌더링
+             */
+            renderExtensions: function(extensions) {
+                const container = document.getElementById('custom-extensions');
+                container.innerHTML = '';
+                
+                extensions.forEach(ext => {
+                    container.appendChild(this.createExtensionElement(ext));
+                });
+            },
+            
+            /**
+             * 확장자 요소 생성
+             */
+            createExtensionElement: function(extension) {
+                const div = document.createElement('div');
+                div.className = 'extension-tag';
+                div.innerHTML = `
+                    .${extension.extension}
+                    <button class="remove-btn" onclick="CustomExtensionManager.removeExtension(${extension.id})">&times;</button>
+                `;
+                return div;
+            },
+            
+            /**
+             * 카운터 업데이트
+             */
+            updateCounter: function(count) {
+                const counterElement = document.getElementById('extension-count');
+                if (counterElement) {
+                    counterElement.textContent = count;
+                }
+            },
+
+            /**
+             * 커스텀 확장자 추가
+             */
+            addExtension: async function() {
+                const input = document.getElementById('custom-extension-input');
+                const extension = input.value.trim();
+                
+                if (!this.validateExtensionInput(extension)) {
+                    return;
+                }
+                
+                try {
+                    await this.sendAddRequest(extension);
+                    input.value = '';
+                    await this.loadExtensions();
+                    NotificationManager.showSuccess('확장자가 추가되었습니다.');
+                } catch (error) {
+                    console.error('커스텀 확장자 추가 실패:', error);
+                    this.handleAddError(error);
+                }
+            },
+            
+            /**
+             * 확장자 입력 검증
+             */
+            validateExtensionInput: function(extension) {
+                if (!extension) {
+                    NotificationManager.showError('확장자를 입력해주세요.');
+                    return false;
+                }
+                return true;
+            },
+            
+            /**
+             * 추가 요청 전송
+             */
+            sendAddRequest: async function(extension) {
+                const response = await fetch(API_ENDPOINTS.CUSTOM, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ extension: extension })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '추가 실패');
+                }
+            },
+            
+            /**
+             * 추가 오류 처리
+             */
+            handleAddError: async function(error) {
+                if (error.message) {
+                    NotificationManager.showError(error.message);
+                } else {
+                    NotificationManager.showError('추가 중 오류가 발생했습니다.');
+                }
+            },
+
+            /**
+             * 커스텀 확장자 삭제
+             */
+            removeExtension: async function(id) {
+                try {
+                    await this.sendDeleteRequest(id);
+                    await this.loadExtensions();
+                    NotificationManager.showSuccess('확장자가 삭제되었습니다.');
+                } catch (error) {
+                    console.error('커스텀 확장자 삭제 실패:', error);
+                    NotificationManager.showError('삭제 중 오류가 발생했습니다.');
+                }
+            },
+            
+            /**
+             * 삭제 요청 전송
+             */
+            sendDeleteRequest: async function(id) {
+                const response = await fetch(`${API_ENDPOINTS.CUSTOM}/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            }
+        };
+        
+        /**
+         * 전역 함수: HTML에서 직접 호출용
+         */
+        function addCustomExtension() {
+            CustomExtensionManager.addExtension();
+        }
+        
+        function removeCustomExtension(id) {
+            CustomExtensionManager.removeExtension(id);
+        }
+
+        /**
+         * 📤 파일 업로드 관리자
+         */
+        const FileUploadManager = {
+            /**
+             * 초기화
+             */
+            init: function() {
+                // 필요시 초기화 로직 추가
+            },
+            
+            /**
+             * 파일 업로드 테스트
+             */
+            testUpload: async function() {
+                const fileInput = document.getElementById('test-file');
+                const resultDiv = document.getElementById('upload-result');
+                
+                if (!this.validateFileInput(fileInput)) {
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                
+                // 파일 크기 검증 (100MB = 104,857,600 bytes)
+                const maxSize = 104857600;
+                if (file.size > maxSize) {
+                    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+                    this.showResult(resultDiv, `❌ 파일 크기가 너무 큽니다.<br>현재: ${fileSizeMB}MB / 최대: 100MB`, false);
+                    return;
+                }
+                
+                // 실제 업로드 (서버에서 검증 후 감사 로그 기록)
+                await this.performActualUpload(file, resultDiv);
+            },
+            
+            /**
+             * 파일 입력 검증
+             */
+            validateFileInput: function(fileInput) {
+                return fileInput && fileInput.files.length > 0;
+            },
+            
+            /**
+             * 로컬 검증 (메모리 기반)
+             */
+            performLocalValidation: function(file) {
+                const fileName = file.name;
+                const extension = this.extractExtension(fileName);
+                
+                // 고정 확장자인 경우 메모리에서 즉시 확인
+                if (CONFIG.FIXED_EXTENSIONS.includes(extension)) {
+                    const isBlocked = ExtensionStateManager.getState(extension);
+                    if (isBlocked) {
+                        return {
+                            isBlocked: true,
+                            message: `❌ 차단된 확장자입니다: ${fileName} (.${extension})`
+                        };
+                    }
+                }
+                
+                return { isBlocked: false };
+            },
+            
+            /**
+             * 파일명에서 확장자 추출
+             */
+            extractExtension: function(fileName) {
+                return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+            },
+            
+            /**
+             * 서버 검증
+             */
+            performServerValidation: async function(file) {
+                try {
+                    const checkUrl = new URL(API_ENDPOINTS.CHECK, window.location.origin);
+                    checkUrl.searchParams.append('fileName', file.name);
+                    
+                    const checkResponse = await fetch(checkUrl);
+                    const checkResult = await checkResponse.json();
+                    
+                    if (checkResult.isBlocked) {
+                        return {
+                            isBlocked: true,
+                            message: `❌ 차단된 확장자입니다: ${file.name}`
+                        };
+                    }
+                } catch (error) {
+                    console.error('파일 검증 실패:', error);
+                }
+                
+                return { isBlocked: false };
+            },
+            
+            /**
+             * 실제 업로드 수행
+             */
+            performActualUpload: async function(file, resultDiv) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch(API_ENDPOINTS.UPLOAD, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        const message = `✅ ${result.message}<br>파일명: ${result.originalFileName || result.fileName}`;
+                        this.showResult(resultDiv, message, true);
+                    } else {
+                        this.showResult(resultDiv, `❌ ${result.error}`, false);
+                    }
+                } catch (error) {
+                    console.error('파일 업로드 테스트 실패:', error);
+                    this.showResult(resultDiv, '❌ 테스트 중 오류가 발생했습니다.', false);
+                }
+            },
+            
+            /**
+             * 결과 표시
+             */
+            showResult: function(resultDiv, message, isSuccess) {
+                const className = isSuccess ? 'upload-success' : 'upload-error';
+                resultDiv.innerHTML = `<div class="${className}">${message}</div>`;
+            }
+        };
+        
+        /**
+         * 📤 파일 검증만 관리자
+         */
+        const FileCheckManager = {
+            /**
+             * 파일 검증만 수행 (업로드 없이)
+             */
+            checkOnly: async function() {
+                const fileInput = document.getElementById('check-file');
+                const resultDiv = document.getElementById('check-result');
+                
+                if (!fileInput || !fileInput.files.length) {
+                    this.showResult(resultDiv, '❌ 파일을 선택해주세요.', false);
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                
+                // 파일 크기 검증 (100MB = 104,857,600 bytes)
+                const maxSize = 104857600;
+                if (file.size > maxSize) {
+                    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+                    this.showResult(resultDiv, `❌ 파일 크기가 너무 큽니다.<br>현재: ${fileSizeMB}MB / 최대: 100MB`, false);
+                    return;
+                }
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch(API_ENDPOINTS.UPLOAD_CHECK, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.result === 'allowed') {
+                        const message = `✅ ${result.message}<br>파일명: ${result.fileName}<br>파일크기: ${this.formatFileSize(result.fileSize)}`;
+                        this.showResult(resultDiv, message, true);
+                    } else {
+                        const message = `❌ ${result.message}<br>파일명: ${result.fileName}<br>차단 사유: ${result.blockReason || '알 수 없음'}`;
+                        this.showResult(resultDiv, message, false);
+                    }
+                } catch (error) {
+                    console.error('파일 검증 실패:', error);
+                    this.showResult(resultDiv, '❌ 검증 중 오류가 발생했습니다.', false);
+                }
+            },
+            
+            /**
+             * 파일 크기 포맷팅
+             */
+            formatFileSize: function(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            },
+            
+            /**
+             * 결과 표시
+             */
+            showResult: function(resultDiv, message, isSuccess) {
+                const className = isSuccess ? 'upload-success' : 'upload-error';
+                resultDiv.innerHTML = `<div class="${className}">${message}</div>`;
+            }
+        };
+        
+        /**
+         * 📁 파일 관리자
+         */
+        const FileManager = {
+            allFiles: [],
+            
+            /**
+             * 초기화
+             */
+            init: function() {
+                // 초기화 로직
+            },
+            
+            /**
+             * 파일 목록 로드
+             */
+            loadFiles: async function() {
+                try {
+                    const response = await fetch(API_ENDPOINTS.FILES);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    this.allFiles = await response.json();
+                    this.renderFiles(this.allFiles);
+                } catch (error) {
+                    console.error('파일 목록 로드 실패:', error);
+                    document.getElementById('files-container').innerHTML = 
+                        '<div class="no-data">파일 목록을 불러오는데 실패했습니다.</div>';
+                }
+            },
+            
+            /**
+             * 파일 목록 렌더링
+             */
+            renderFiles: function(files) {
+                const container = document.getElementById('files-container');
+                
+                if (files.length === 0) {
+                    container.innerHTML = '<div class="no-data">업로드된 파일이 없습니다.</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>원본명</th>
+                                <th>저장명</th>
+                                <th>크기</th>
+                                <th>업로드 시간</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${files.map(file => this.createFileRow(file)).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                container.innerHTML = table;
+            },
+            
+            /**
+             * 파일 행 생성
+             */
+            createFileRow: function(file) {
+                const protectionIcon = file.deletionException ? '🛡️' : '';
+                const protectionButton = file.deletionException ? 
+                    `<button class="btn btn-danger btn-small" onclick="FileManager.toggleProtection(${file.id}, false)" style="margin-right: 5px;">보호해제</button>` :
+                    `<button class="btn btn-secondary btn-small" onclick="FileManager.toggleProtection(${file.id}, true)" style="margin-right: 5px;">보호설정</button>`;
+                
+                return `
+                    <tr>
+                        <td>${protectionIcon} ${file.originalFilename}</td>
+                        <td>${file.storedFilename}</td>
+                        <td>${this.formatFileSize(file.fileSize)}</td>
+                        <td>${this.formatDate(file.createdAt)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-small" onclick="FileManager.viewFile(${file.id})" style="margin-right: 5px;">보기</button>
+                            <button class="btn btn-success btn-small" onclick="FileManager.downloadFile(${file.id})" style="margin-right: 5px;">다운로드</button>
+                            ${protectionButton}
+                            <button class="btn btn-danger btn-small" onclick="FileManager.deleteFile(${file.id})">삭제</button>
+                        </td>
+                    </tr>
+                `;
+            },
+            
+            /**
+             * 파일 크기 포맷팅
+             */
+            formatFileSize: function(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            },
+            
+            /**
+             * 날짜 포맷팅
+             */
+            formatDate: function(dateString) {
+                if (!dateString) return 'N/A';
+                const date = new Date(dateString);
+                return date.toLocaleString('ko-KR');
+            },
+            
+            /**
+             * 파일 검색 필터링
+             */
+            filterFiles: function() {
+                const searchTerm = document.getElementById('file-search').value.toLowerCase();
+                const filteredFiles = this.allFiles.filter(file => 
+                    file.originalFilename.toLowerCase().includes(searchTerm) ||
+                    (file.storedFilename && file.storedFilename.toLowerCase().includes(searchTerm))
+                );
+                this.renderFiles(filteredFiles);
+            },
+            
+            /**
+             * 파일 정보 보기
+             */
+            viewFile: async function(fileId) {
+                try {
+                    const response = await fetch(`${API_ENDPOINTS.FILES}/${fileId}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const file = await response.json();
+                    alert(`파일 정보:\n\n파일 ID: ${file.id}\n원본명: ${file.originalFilename}\n저장명: ${file.storedFilename}\n크기: ${this.formatFileSize(file.fileSize)}\n경로: ${file.filePath}\n업로드 시간: ${this.formatDate(file.createdAt)}`);
+                } catch (error) {
+                    console.error('파일 정보 조회 실패:', error);
+                    alert('파일 정보를 불러오는데 실패했습니다.');
+                }
+            },
+            
+            /**
+             * 파일 다운로드
+             */
+            downloadFile: function(fileId) {
+                const downloadUrl = `${API_ENDPOINTS.FILES}/${fileId}/download`;
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = '';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+            
+            /**
+             * 파일 삭제
+             */
+            deleteFile: async function(fileId) {
+                if (!confirm('정말로 이 파일을 삭제하시겠습니까?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${API_ENDPOINTS.FILES}/${fileId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    alert('파일이 삭제되었습니다.');
+                    this.loadFiles(); // 목록 새로고침
+                } catch (error) {
+                    console.error('파일 삭제 실패:', error);
+                    alert('파일 삭제에 실패했습니다.');
+                }
+            },
+            
+            /**
+             * 파일 보호 설정 토글
+             */
+            toggleProtection: async function(fileId, enable) {
+                const action = enable ? '보호 설정' : '보호 해제';
+                if (!confirm(`정말로 이 파일의 ${action}을 하시겠습니까?${enable ? '\\n(확장자 차단 시에도 삭제되지 않습니다)' : ''}`)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${API_ENDPOINTS.FILES}/${fileId}/protection`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ deletionException: enable })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    alert(result.message);
+                    this.loadFiles(); // 목록 새로고침
+                    
+                } catch (error) {
+                    console.error('파일 보호 설정 실패:', error);
+                    alert('파일 보호 설정에 실패했습니다.');
+                }
+            }
+        };
+        
+        
+        /**
+         * 🛡️ 보안 감사 로그 관리자
+         */
+        const AuditManager = {
+            stompClient: null,
+            
+            /**
+             * 초기화
+             */
+            init: function() {
+                this.connectWebSocket();
+                this.loadBlockedUploads(); // 초기 데이터 로드
+            },
+            
+            /**
+             * WebSocket 연결
+             */
+            connectWebSocket: function() {
+                try {
+                    const socket = new SockJS('/ws');
+                    this.stompClient = new StompJs.Client({
+                        webSocketFactory: () => socket,
+                        debug: (str) => {
+                            console.log('STOMP: ' + str);
+                        },
+                        onConnect: (frame) => {
+                            console.log('Connected: ' + frame);
+                            this.stompClient.subscribe('/topic/audit-logs', (message) => {
+                                const auditLog = JSON.parse(message.body);
+                                this.addNewAuditLog(auditLog);
+                            });
+                        },
+                        onStompError: (frame) => {
+                            console.error('STOMP error', frame);
+                        }
+                    });
+                    
+                    this.stompClient.activate();
+                } catch (error) {
+                    console.error('WebSocket 연결 실패:', error);
+                }
+            },
+            
+            /**
+             * 새 감사 로그를 실시간으로 추가
+             */
+            addNewAuditLog: function(auditLog) {
+                if (auditLog.blocked) {
+                    // Alert 표시
+                    alert(`🚨 파일 업로드 차단!\n파일명: ${auditLog.filename}\nIP: ${auditLog.ipAddress}\n차단 사유: ${auditLog.blockReason || '차단됨'}`);
+                    
+                    // 새로운 감사 로그를 테이블 맨 위에 추가
+                    const container = document.getElementById('blocked-uploads-container');
+                    const existingTable = container.querySelector('table');
+                    
+                    if (existingTable) {
+                        const tbody = existingTable.querySelector('tbody');
+                        const newRow = document.createElement('tr');
+                        newRow.innerHTML = this.createBlockedUploadRow(auditLog);
+                        newRow.style.backgroundColor = '#ffebee'; // 빨간색 배경으로 강조
+                        newRow.style.animation = 'flash 0.5s ease-in-out 3'; // 깜빡임 효과
+                        tbody.insertBefore(newRow, tbody.firstChild);
+                        
+                        // 강조 효과 제거 (5초 후)
+                        setTimeout(() => {
+                            newRow.style.backgroundColor = '';
+                            newRow.style.animation = '';
+                        }, 5000);
+                    } else {
+                        // 테이블이 없으면 전체 로드
+                        this.loadBlockedUploads();
+                    }
+                    
+                    // 브라우저 알림 (권한이 있는 경우)
+                    this.showNotification(auditLog);
+                }
+            },
+            
+            /**
+             * 브라우저 알림 표시
+             */
+            showNotification: function(auditLog) {
+                if ("Notification" in window && Notification.permission === "granted") {
+                    new Notification("차단된 파일 업로드 감지", {
+                        body: `파일: ${auditLog.filename}\nIP: ${auditLog.ipAddress}`,
+                        icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23dc3545'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/%3E%3C/svg%3E"
+                    });
+                }
+            },
+            
+            /**
+             * 차단된 업로드 기록 로드
+             */
+            loadBlockedUploads: async function() {
+                try {
+                    const response = await fetch(API_ENDPOINTS.AUDIT_BLOCKED);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const pageResponse = await response.json();
+                    // Page 객체에서 content 배열 추출
+                    const blockedUploads = pageResponse.content || [];
+                    this.renderBlockedUploads(blockedUploads);
+                } catch (error) {
+                    console.error('차단된 업로드 기록 로드 실패:', error);
+                    document.getElementById('blocked-uploads-container').innerHTML = 
+                        '<div class="no-data">차단된 업로드 기록을 불러오는데 실패했습니다.</div>';
+                }
+            },
+            
+            /**
+             * 차단된 업로드 렌더링
+             */
+            renderBlockedUploads: function(uploads) {
+                const container = document.getElementById('blocked-uploads-container');
+                
+                if (uploads.length === 0) {
+                    container.innerHTML = '<div class="no-data">차단된 업로드 기록이 없습니다.</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>시간</th>
+                                <th>파일명</th>
+                                <th>IP 주소</th>
+                                <th>차단 사유</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${uploads.map(upload => this.createBlockedUploadRow(upload)).join('')}
+                        </tbody>
+                    </table>
+                `;
+                
+                container.innerHTML = table;
+            },
+            
+            /**
+             * 차단된 업로드 행 생성
+             */
+            createBlockedUploadRow: function(upload) {
+                return `
+                    <tr>
+                        <td>${this.formatDate(upload.uploadTime)}</td>
+                        <td>${upload.filename}</td>
+                        <td>${upload.ipAddress}</td>
+                        <td><span style="color: #dc3545; font-weight: bold;">${upload.blockReason || '차단됨'}</span></td>
+                    </tr>
+                `;
+            },
+            
+            
+            /**
+             * 날짜 포맷팅
+             */
+            formatDate: function(dateString) {
+                if (!dateString) return 'N/A';
+                const date = new Date(dateString);
+                return date.toLocaleString('ko-KR');
+            }
+        };
+
+        /**
+         * 전역 함수: HTML에서 직접 호출용
+         */
+        function testFileUpload() {
+            FileUploadManager.testUpload();
+        }
+        
+        function checkFileOnly() {
+            FileCheckManager.checkOnly();
+        }
+
+        /**
+         * 🚀 애플리케이션 시작점
+         */
+        window.onload = function() {
+            App.init();
+        };
+    </script>
+</body>
+</html>
