@@ -921,6 +921,9 @@
                 
                 // 실제 업로드 (서버에서 검증 후 감사 로그 기록)
                 await this.performActualUpload(file, resultDiv);
+                
+                // 파일 입력 초기화 (동일 파일 재선택 가능)
+                fileInput.value = '';
             },
             
             /**
@@ -995,7 +998,14 @@
                         body: formData
                     });
                     
-                    const result = await response.json();
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch (jsonError) {
+                        console.error('JSON 파싱 오류:', jsonError);
+                        this.showResult(resultDiv, '❌ 서버 응답 형식 오류가 발생했습니다.', false);
+                        return;
+                    }
                     
                     if (response.ok) {
                         const message = `✅ ${result.message}<br>파일명: ${result.originalFileName || result.fileName}`;
@@ -1005,7 +1015,7 @@
                     }
                 } catch (error) {
                     console.error('파일 업로드 테스트 실패:', error);
-                    this.showResult(resultDiv, '❌ 테스트 중 오류가 발생했습니다.', false);
+                    this.showResult(resultDiv, '❌ 네트워크 오류가 발생했습니다.', false);
                 }
             },
             
@@ -1065,6 +1075,9 @@
                 } catch (error) {
                     console.error('파일 검증 실패:', error);
                     this.showResult(resultDiv, '❌ 검증 중 오류가 발생했습니다.', false);
+                } finally {
+                    // 파일 입력 초기화 (동일 파일 재선택 가능)
+                    fileInput.value = '';
                 }
             },
             

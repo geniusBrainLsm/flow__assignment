@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: fileextension-postgres
+    environment:
+      POSTGRES_DB: fileextension
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dev-network
+
+  app:
+    build: .
+    container_name: fileextension-app
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/fileextension
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password123
+    volumes:
+      - ./uploads-dev:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  dev-network:
+    driver: bridge
