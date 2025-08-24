@@ -1063,6 +1063,15 @@
                         body: formData
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error('서버가 잘못된 응답 형식을 반환했습니다.');
+                    }
+                    
                     const result = await response.json();
                     
                     if (result.result === 'allowed') {
