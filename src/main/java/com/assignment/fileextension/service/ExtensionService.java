@@ -121,6 +121,42 @@ public class ExtensionService {
         if (currentCount >= FileExtensionConstants.FileLimit.MAX_CUSTOM_EXTENSIONS) {
             throw new IllegalArgumentException(FileExtensionConstants.Messages.MAX_EXTENSIONS_EXCEEDED);
         }
+        
+        // 보안 검증 추가
+        validateExtensionFormat(extension);
+    }
+    
+    /**
+     * 확장자 형식 보안 검증 (XSS 방지)
+     */
+    private void validateExtensionFormat(String extension) {
+        // null/빈 값 검사
+        if (extension == null || extension.trim().isEmpty()) {
+            throw new IllegalArgumentException("확장자를 입력해주세요.");
+        }
+        
+        // 길이 검사 (실제 확장자는 보통 2-5자)
+        if (extension.length() > 10) {
+            throw new IllegalArgumentException("확장자는 10자 이하여야 합니다.");
+        }
+        
+        // HTML/XML 태그 차단
+        if (extension.contains("<") || extension.contains(">")) {
+            throw new IllegalArgumentException("확장자에 HTML 태그를 사용할 수 없습니다.");
+        }
+        
+        // 스크립트 관련 문자 차단
+        String lowercaseExt = extension.toLowerCase();
+        if (lowercaseExt.contains("script") || lowercaseExt.contains("javascript") || 
+            lowercaseExt.contains("data:") || lowercaseExt.contains("vbscript") ||
+            extension.contains("&") || extension.contains("\"") || extension.contains("'")) {
+            throw new IllegalArgumentException("스크립트 관련 문자는 사용할 수 없습니다.");
+        }
+        
+        // 정규식으로 허용된 문자만 체크 (영문자, 숫자만)
+        if (!extension.matches("^[a-zA-Z0-9]+$")) {
+            throw new IllegalArgumentException("확장자는 영문자와 숫자만 사용 가능합니다.");
+        }
     }
     
     @Transactional

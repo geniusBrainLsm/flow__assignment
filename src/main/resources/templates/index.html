@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>파일 확장자 차단</title>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
     <style>
@@ -696,15 +697,12 @@
              * 이벤트 리스너 설정
              */
             setupEventListeners: function() {
-                // Enter 키로 확장자 추가
-                const input = document.getElementById('custom-extension-input');
-                if (input) {
-                    input.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            CustomExtensionManager.addExtension();
-                        }
-                    });
-                }
+                // Enter 키로 확장자 추가 (jQuery 사용)
+                $('#custom-extension-input').on('keypress', function(e) {
+                    if (e.which === 13) { // Enter 키 (13 = Enter 키 코드)
+                        CustomExtensionManager.addExtension();
+                    }
+                });
             }
         };
         
@@ -755,43 +753,49 @@
              * 확장자 목록 렌더링
              */
             renderExtensions: function(extensions) {
-                const container = document.getElementById('custom-extensions');
-                container.innerHTML = '';
+                const $container = $('#custom-extensions');
+                $container.empty(); // jQuery로 안전하게 비우기
                 
                 extensions.forEach(ext => {
-                    container.appendChild(this.createExtensionElement(ext));
+                    $container.append(this.createExtensionElement(ext));
                 });
             },
             
             /**
-             * 확장자 요소 생성
+             * 확장자 요소 생성 (XSS 보안 적용)
              */
             createExtensionElement: function(extension) {
-                const div = document.createElement('div');
-                div.className = 'extension-tag';
-                div.innerHTML = `
-                    .${extension.extension}
-                    <button class="remove-btn" onclick="CustomExtensionManager.removeExtension(${extension.id})">&times;</button>
-                `;
-                return div;
+                // jQuery로 안전한 DOM 생성
+                const $div = $('<div>').addClass('extension-tag');
+                
+                // 확장자 텍스트 안전하게 추가 (XSS 차단)
+                const $extensionSpan = $('<span>').text(`.${extension.extension}`);
+                
+                // 삭제 버튼 생성
+                const $removeButton = $('<button>')
+                    .addClass('remove-btn')
+                    .text('×')
+                    .on('click', () => this.removeExtension(extension.id));
+                
+                // 요소들 조립
+                $div.append($extensionSpan).append($removeButton);
+                
+                return $div[0]; // DOM 요소 반환
             },
             
             /**
              * 카운터 업데이트
              */
             updateCounter: function(count) {
-                const counterElement = document.getElementById('extension-count');
-                if (counterElement) {
-                    counterElement.textContent = count;
-                }
+                $('#extension-count').text(count); // jQuery로 안전한 텍스트 업데이트
             },
 
             /**
              * 커스텀 확장자 추가
              */
             addExtension: async function() {
-                const input = document.getElementById('custom-extension-input');
-                const extension = input.value.trim();
+                const $input = $('#custom-extension-input');
+                const extension = $input.val().trim();
                 
                 if (!this.validateExtensionInput(extension)) {
                     return;
@@ -799,7 +803,7 @@
                 
                 try {
                     await this.sendAddRequest(extension);
-                    input.value = '';
+                    $input.val(''); // jQuery로 입력창 비우기
                     await this.loadExtensions();
                     NotificationManager.showSuccess('확장자가 추가되었습니다.');
                 } catch (error) {
